@@ -30,6 +30,7 @@ col_edit, col_view = st.columns([1, 1], gap="large")
 
 with col_edit:
     st.subheader("📝 Script Editor")
+    # Clean logic with variable injection
     default_code = f"""import cadquery as cq
 result = (cq.Workplane("XY")
           .rect({w_val}, {w_val})
@@ -38,6 +39,7 @@ result = (cq.Workplane("XY")
           .twistExtrude({h_val}, {twist})
           .faces(">Z").shell(-{t_val})
           .edges(">Z").fillet(0.5))"""
+    
     user_code = st.text_area("Python Code", value=default_code, height=400)
     render_btn = st.button("🔨 GENERATE WEB ASSETS")
 
@@ -50,27 +52,40 @@ with col_view:
             obj = exec_locals.get('result')
             
             if obj:
-                # Export to temp files for the session
-                obj.exportStep("part.step")
-                obj.exportStl("part.stl")
-                # Generate DXF
+                # --- CORRECTED EXPORT SYSTEM ---
+                # Use the universal exporter function instead of direct methods
+                cq.exporters.export(obj, "part.step", cq.exporters.ExportTypes.STEP)
+                cq.exporters.export(obj, "part.stl", cq.exporters.ExportTypes.STL)
+                
+                # Generate DXF for AutoCAD
                 dxf_data = obj.section().toPending()
                 cq.exporters.export(dxf_data, "part.dxf", cq.exporters.ExportTypes.DXF)
 
                 # Display 3D Viewer
                 with open("part.stl", "rb") as f:
                     data = base64.b64encode(f.read()).decode("utf-8")
+                
                 st.components.v1.html(f'''
                     <script src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-                    <model-viewer src="data:model/stl;base64,{data}" style="width:100%; height:500px; background-color:#121212;" camera-controls auto-rotate></model-viewer>
+                    <model-viewer src="data:model/stl;base64,{data}" 
+                        style="width:100%; height:500px; background-color:#121212; border-radius:8px;" 
+                        camera-controls auto-rotate></model-viewer>
                 ''', height=510)
+                st.success("✅ Model Rendered and Files Created!")
         except Exception as e:
             st.error(f"Logic Error: {e}")
 
 # --- 4. WEB DOWNLOAD HUB ---
 st.divider()
+st.subheader("📂 Download CAD Assets")
 if os.path.exists("part.step"):
     c1, c2, c3 = st.columns(3)
-    with c1: st.download_button("📐 STEP (SolidEdge/CATIA)", open("part.step","rb"), "part.step")
-    with c2: st.download_button("✏️ DXF (AutoCAD)", open("part.dxf","rb"), "part.dxf")
-    with c3: st.download_button("🖨️ STL (3D Print)", open("part.stl","rb"), "part.stl")
+    with c1:
+        with open("part.step", "rb") as f:
+            st.download_button("📐 STEP (SolidEdge/CATIA)", f, "part.step", use_container_width=True)
+    with c2:
+        with open("part.dxf", "rb") as f:
+            st.download_button("✏️ DXF (AutoCAD)", f, "part.dxf", use_container_width=True)
+    with c3:
+        with open("part.stl", "rb") as f:
+            st.download_button("🖨️ STL (3D Print)", f, "part.stl", use_container_width=True)
