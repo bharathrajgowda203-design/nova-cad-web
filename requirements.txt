@@ -1,2 +1,2 @@
 streamlit
-cadquery==2.4.0
+cadquery==2.5.2
